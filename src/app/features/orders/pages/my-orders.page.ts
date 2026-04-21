@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import {
   LucideAngularModule,
   Package,
@@ -16,7 +16,6 @@ import { AuthService } from '../../../core/services/auth.service';
 import { OrderService } from '../../../core/services/order.service';
 import { Order, OrderStatus } from '../../../shared/models';
 import { CurrencyEurPipe } from '../../../shared/pipes/currency-eur.pipe';
-import { toObservable } from '@angular/core/rxjs-interop';
 
 @Component({
   selector: 'fv-my-orders-page',
@@ -24,16 +23,16 @@ import { toObservable } from '@angular/core/rxjs-interop';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [RouterLink, LucideAngularModule, CurrencyEurPipe],
   template: `
-    <section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
-      <header class="mb-8 fv-fade-in">
-        <h1 class="text-4xl font-black fv-title" style="font-family: 'Orbitron', sans-serif">Mis pedidos</h1>
-        <p class="text-slate-400 mt-2">Consulta el estado de tus compras.</p>
+    <section class="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+      <header class="mb-6 sm:mb-8 fv-fade-in">
+        <h1 class="text-3xl sm:text-4xl font-black fv-title" style="font-family: 'Orbitron', sans-serif">Mis pedidos</h1>
+        <p class="text-slate-400 mt-2 text-sm sm:text-base">Consulta el estado de tus compras.</p>
       </header>
 
       @if (orders() == null) {
         <div class="fv-card p-10 text-center text-slate-400">Cargando…</div>
       } @else if (orders()!.length === 0) {
-        <div class="fv-card p-10 text-center">
+        <div class="fv-card p-8 sm:p-10 text-center">
           <lucide-icon [img]="Package" [size]="40" class="mx-auto text-slate-500 mb-3"/>
           <p class="text-slate-300">Aún no has hecho ningún pedido.</p>
           <a routerLink="/products" class="fv-btn fv-btn-primary mt-4">Explorar catálogo</a>
@@ -41,14 +40,12 @@ import { toObservable } from '@angular/core/rxjs-interop';
       } @else {
         <ul class="space-y-4">
           @for (o of orders(); track o.id) {
-            <li class="fv-card p-5 fv-fade-in">
+            <li class="fv-card p-4 sm:p-5 fv-fade-in">
               <div class="flex flex-wrap justify-between gap-3 mb-4">
                 <div>
                   <p class="text-xs uppercase tracking-wider text-slate-500">Pedido</p>
                   <p class="font-mono text-slate-200 text-sm">#{{ o.id.slice(0, 8) }}</p>
-                  <p class="text-slate-500 text-xs mt-1">
-                    {{ formatDate(o.createdAt) }}
-                  </p>
+                  <p class="text-slate-500 text-xs mt-1">{{ formatDate(o.createdAt) }}</p>
                 </div>
                 <div class="flex items-center gap-2">
                   <lucide-icon [img]="iconFor(o.status)" [size]="16" [class]="colorFor(o.status)"/>
@@ -60,17 +57,17 @@ import { toObservable } from '@angular/core/rxjs-interop';
 
               <ul class="grid sm:grid-cols-2 gap-2 mb-4">
                 @for (it of o.items; track it.funko.id) {
-                  <li class="flex items-center gap-3">
-                    <img [src]="it.funko.imagen_url" class="w-10 h-10 rounded-lg object-cover"/>
-                    <div class="text-sm">
-                      <p class="text-white">{{ it.funko.nombre }}</p>
+                  <li class="flex items-center gap-3 min-w-0">
+                    <img [src]="it.funko.imagen_url" class="w-10 h-10 rounded-lg object-cover shrink-0"/>
+                    <div class="text-sm min-w-0">
+                      <p class="text-white truncate">{{ it.funko.nombre }}</p>
                       <p class="text-slate-500 text-xs">x{{ it.cantidad }}</p>
                     </div>
                   </li>
                 }
               </ul>
 
-              <div class="flex items-center justify-between pt-3 border-t border-white/5">
+              <div class="flex flex-wrap items-center justify-between gap-2 pt-3 border-t border-white/5">
                 <p class="text-xs text-slate-500">
                   {{ o.items.length }} producto(s) · {{ methodLabel(o.paymentMethod) }}
                   @if (o.trackingCode) {

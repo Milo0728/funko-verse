@@ -18,6 +18,7 @@ import {
 import { Observable, map } from 'rxjs';
 
 import { ElementType, Funko } from '../../shared/models';
+import { stripUndefined } from '../../shared/utils/firestore.util';
 
 /**
  * Interactúa con la colección `products` de Firestore.
@@ -56,12 +57,12 @@ export class ProductService {
   }
 
   async create(funko: Omit<Funko, 'id'>): Promise<string> {
-    const ref = await addDoc(this.col, funko);
+    const ref = await addDoc(this.col, stripUndefined(funko));
     return ref.id;
   }
 
   async update(id: string, patch: Partial<Funko>): Promise<void> {
-    await updateDoc(doc(this.firestore, `products/${id}`), patch);
+    await updateDoc(doc(this.firestore, `products/${id}`), stripUndefined(patch));
   }
 
   async delete(id: string): Promise<void> {

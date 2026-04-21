@@ -13,9 +13,10 @@ import {
   updateDoc,
   where,
 } from '@angular/fire/firestore';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 
 import { Order, OrderStatus } from '../../shared/models';
+import { stripUndefined } from '../../shared/utils/firestore.util';
 import { ProductService } from './product.service';
 
 @Injectable({ providedIn: 'root' })
@@ -29,23 +30,26 @@ export class OrderService {
 
   /** Crea la orden y descuenta stock de cada producto. */
   async createOrder(payload: Omit<Order, 'id'>): Promise<string> {
-    const ref = await addDoc(this.col, payload);
-    // Actualizamos stock/popularidad en paralelo.
+    const ref = await addDoc(this.col, stripUndefined(payload));
+    // Actualizamos stock/popularidad en paralelo. Capturamos errores para que
+    // un fallo de stock en un item no impida crear la orden (el admin puede revisar).
     await Promise.all(
       payload.items.map((it) =>
-        this.products.decrementStock(it.funko.id, it.cantidad),
+        this.products
+          .decrementStock(it.funko.id, it.cantidad)
+          .catch((err) => console.warn('[OrderService] stock update failed', err)),
       ),
     );
     return ref.id;
   }
 
   getByUser(userId: string): Observable<Order[]> {
-    const q = query(
-      this.col,
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc'),
+    // Solo filtramos por userId en Firestore para no requerir un índice
+    // compuesto (userId + createdAt). Ordenamos en cliente.
+    const q = query(this.col, where('userId', '==', userId));
+    return (collectionData(q, { idField: 'id' }) as Observable<Order[]>).pipe(
+      map((orders) => [...orders].sort((a, b) => b.createdAt - a.createdAt)),
     );
-    return collectionData(q, { idField: 'id' }) as Observable<Order[]>;
   }
 
   getAll(): Observable<Order[]> {

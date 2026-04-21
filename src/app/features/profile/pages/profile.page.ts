@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { LucideAngularModule, User, MapPin, Save, ClipboardList, Heart } from 'lucide-angular';
@@ -12,15 +12,14 @@ import { ToastService } from '../../../core/services/toast.service';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [ReactiveFormsModule, RouterLink, LucideAngularModule],
   template: `
-    <section class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
-      <header class="mb-8 fv-fade-in">
-        <h1 class="text-4xl font-black fv-title" style="font-family: 'Orbitron', sans-serif">Mi perfil</h1>
-        <p class="text-slate-400 mt-2">Gestiona tus datos y tu dirección de envío.</p>
+    <section class="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+      <header class="mb-6 sm:mb-8 fv-fade-in">
+        <h1 class="text-3xl sm:text-4xl font-black fv-title" style="font-family: 'Orbitron', sans-serif">Mi perfil</h1>
+        <p class="text-slate-400 mt-2 text-sm sm:text-base">Gestiona tus datos y tu dirección de envío.</p>
       </header>
 
       <div class="grid md:grid-cols-3 gap-6">
-        <!-- Navegación -->
-        <aside class="fv-card p-4 h-fit space-y-1">
+        <aside class="fv-card p-3 sm:p-4 h-fit space-y-1 md:sticky md:top-24">
           <a routerLink="/profile" class="flex items-center gap-2 px-3 py-2 rounded-lg text-white bg-white/5">
             <lucide-icon [img]="User" [size]="15"/> Datos personales
           </a>
@@ -32,9 +31,8 @@ import { ToastService } from '../../../core/services/toast.service';
           </a>
         </aside>
 
-        <!-- Formularios -->
         <div class="md:col-span-2 space-y-6">
-          <div class="fv-card p-6 fv-fade-in">
+          <div class="fv-card p-5 sm:p-6 fv-fade-in">
             <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
               <lucide-icon [img]="User" [size]="18"/> Datos
             </h2>
@@ -52,14 +50,15 @@ import { ToastService } from '../../../core/services/toast.service';
                 <input type="email" [value]="auth.appUser()?.email ?? ''" class="fv-input opacity-60" disabled/>
               </div>
               <div class="sm:col-span-2">
-                <button type="submit" class="fv-btn fv-btn-primary">
-                  <lucide-icon [img]="Save" [size]="16"/> Guardar cambios
+                <button type="submit" class="fv-btn fv-btn-primary" [disabled]="saving() || profileForm.invalid">
+                  <lucide-icon [img]="Save" [size]="16"/>
+                  {{ saving() ? 'Guardando…' : 'Guardar cambios' }}
                 </button>
               </div>
             </form>
           </div>
 
-          <div class="fv-card p-6 fv-fade-in">
+          <div class="fv-card p-5 sm:p-6 fv-fade-in">
             <h2 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
               <lucide-icon [img]="MapPin" [size]="18"/> Dirección de envío
             </h2>
@@ -89,8 +88,9 @@ import { ToastService } from '../../../core/services/toast.service';
                 <input type="text" formControlName="country" class="fv-input"/>
               </div>
               <div class="sm:col-span-2">
-                <button type="submit" class="fv-btn fv-btn-primary">
-                  <lucide-icon [img]="Save" [size]="16"/> Guardar dirección
+                <button type="submit" class="fv-btn fv-btn-primary" [disabled]="savingAddress()">
+                  <lucide-icon [img]="Save" [size]="16"/>
+                  {{ savingAddress() ? 'Guardando…' : 'Guardar dirección' }}
                 </button>
               </div>
             </form>
@@ -111,36 +111,63 @@ export class ProfilePage {
   private readonly fb = inject(FormBuilder);
   private readonly toast = inject(ToastService);
 
+  readonly saving = signal(false);
+  readonly savingAddress = signal(false);
+
   readonly profileForm = this.fb.nonNullable.group({
-    displayName: [this.auth.appUser()?.displayName ?? '', Validators.required],
-    phone: [this.auth.appUser()?.phone ?? ''],
+    displayName: ['', Validators.required],
+    phone: [''],
   });
 
   readonly addressForm = this.fb.nonNullable.group({
-    fullName: [this.auth.appUser()?.address?.fullName ?? ''],
-    street: [this.auth.appUser()?.address?.street ?? ''],
-    city: [this.auth.appUser()?.address?.city ?? ''],
-    state: [this.auth.appUser()?.address?.state ?? ''],
-    postalCode: [this.auth.appUser()?.address?.postalCode ?? ''],
-    country: [this.auth.appUser()?.address?.country ?? 'España'],
+    fullName: [''],
+    street: [''],
+    city: [''],
+    state: [''],
+    postalCode: [''],
+    country: ['España'],
   });
+
+  constructor() {
+    // Rellena los formularios cuando el perfil llega de Firestore.
+    // Evita la race donde se inicializan vacíos en el ctor.
+    effect(() => {
+      const u = this.auth.appUser();
+      if (!u) return;
+      this.profileForm.patchValue(
+        { displayName: u.displayName ?? '', phone: u.phone ?? '' },
+        { emitEvent: false },
+      );
+      if (u.address) {
+        this.addressForm.patchValue(u.address, { emitEvent: false });
+      }
+    });
+  }
 
   async saveProfile(): Promise<void> {
     if (this.profileForm.invalid) return;
+    this.saving.set(true);
     try {
       await this.auth.updateUserProfile(this.profileForm.getRawValue());
       this.toast.success('Datos actualizados');
-    } catch {
+    } catch (err) {
+      console.error(err);
       this.toast.error('No pudimos guardar los cambios');
+    } finally {
+      this.saving.set(false);
     }
   }
 
   async saveAddress(): Promise<void> {
+    this.savingAddress.set(true);
     try {
       await this.auth.updateUserProfile({ address: this.addressForm.getRawValue() });
       this.toast.success('Dirección guardada');
-    } catch {
+    } catch (err) {
+      console.error(err);
       this.toast.error('No pudimos guardar la dirección');
+    } finally {
+      this.savingAddress.set(false);
     }
   }
 }

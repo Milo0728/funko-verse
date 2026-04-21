@@ -17,15 +17,18 @@ import {
   setDoc,
   updateDoc,
 } from '@angular/fire/firestore';
-import { Observable, Subscription, of, switchMap } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 
 import { AppUser, UserRole } from '../../shared/models';
+import { stripUndefined } from '../../shared/utils/firestore.util';
 
 /**
  * AuthService: maneja ciclo completo de autenticación con Firebase Auth
  * y sincroniza un perfil enriquecido en la colección `users` de Firestore.
  *
- * Expone tanto signals (para templates reactivos) como observables.
+ * El flag `loading` pasa a `false` cuando Firebase hidrata la sesión (tras
+ * leer IndexedDB) y se ha intentado leer el perfil. Los guards esperan a
+ * este momento antes de decidir, evitando rebotes espurios al login.
  */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -43,19 +46,9 @@ export class AuthService {
   readonly isLogged = computed(() => this._firebaseUser() !== null);
   readonly isAdmin = computed(() => this._appUser()?.role === 'admin');
 
-  /** Stream del usuario enriquecido para casos donde RxJS encaja mejor. */
-  readonly appUser$: Observable<AppUser | null> = user(this.auth).pipe(
-    switchMap((fbUser) => {
-      if (!fbUser) return of(null);
-      const ref = doc(this.firestore, `users/${fbUser.uid}`);
-      return docData(ref) as Observable<AppUser>;
-    }),
-  );
-
   constructor() {
-    // Sincroniza signals a partir del estado real de auth.
-    // Nos suscribimos al docData en vivo para que cambios de rol en Firestore
-    // se reflejen automáticamente en la UI sin requerir logout/login.
+    // Nos suscribimos al docData en vivo para que cambios de rol o datos
+    // se reflejen automáticamente en la UI sin requerir recarga.
     let profileSub: Subscription | null = null;
 
     user(this.auth).subscribe((fbUser) => {
@@ -94,7 +87,7 @@ export class AuthService {
       role: 'user',
       createdAt: Date.now(),
     };
-    await setDoc(doc(this.firestore, `users/${cred.user.uid}`), newUser);
+    await setDoc(doc(this.firestore, `users/${cred.user.uid}`), stripUndefined(newUser));
     this._appUser.set(newUser);
   }
 
@@ -115,13 +108,13 @@ export class AuthService {
     const uid = this._firebaseUser()?.uid;
     if (!uid) return;
     await updateDoc(doc(this.firestore, `users/${uid}`), {
-      ...partial,
+      ...stripUndefined(partial),
       updatedAt: serverTimestamp(),
     });
     this._appUser.update((u) => (u ? { ...u, ...partial } : u));
   }
 
-  /** Helper usado por el admin-guard para promocionar un usuario a admin manualmente (solo dev). */
+  /** Helper para cambiar el rol de un usuario (se invoca desde dev/admin). */
   async setRole(uid: string, role: UserRole): Promise<void> {
     await updateDoc(doc(this.firestore, `users/${uid}`), { role });
   }

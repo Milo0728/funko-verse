@@ -13,6 +13,7 @@ import {
 import { Observable } from 'rxjs';
 
 import { Promotion } from '../../shared/models';
+import { stripUndefined } from '../../shared/utils/firestore.util';
 
 @Injectable({ providedIn: 'root' })
 export class PromotionService {
@@ -27,12 +28,12 @@ export class PromotionService {
   }
 
   async create(promo: Omit<Promotion, 'id'>): Promise<string> {
-    const ref = await addDoc(this.col, promo);
+    const ref = await addDoc(this.col, stripUndefined(promo));
     return ref.id;
   }
 
   async update(id: string, patch: Partial<Promotion>): Promise<void> {
-    await updateDoc(doc(this.firestore, `promotions/${id}`), patch);
+    await updateDoc(doc(this.firestore, `promotions/${id}`), stripUndefined(patch));
   }
 
   async delete(id: string): Promise<void> {

@@ -2,16 +2,21 @@ import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Firestore, doc, getDoc, setDoc } from '@angular/fire/firestore';
 
 import { CartItem, CartSummary, Funko } from '../../shared/models';
+import { stripUndefined } from '../../shared/utils/firestore.util';
 import { AuthService } from './auth.service';
 
 const STORAGE_KEY = 'funkoverse.cart.v1';
 const SHIPPING_FLAT = 4.99;
 const FREE_SHIPPING_THRESHOLD = 75;
+const REMOTE_DEBOUNCE_MS = 800;
 
 /**
  * CartService: mantiene el estado del carrito como signal global.
- * - Sin login -> persistencia en localStorage.
- * - Con login -> sincroniza a Firestore en `cart/{uid}`.
+ * - Sin login  -> persistencia en localStorage.
+ * - Con login  -> sincroniza a Firestore en `cart/{uid}`.
+ *
+ * Los writes remotos van con debounce para evitar ráfagas cuando el usuario
+ * toca +/- rápido en el carrito.
  */
 @Injectable({ providedIn: 'root' })
 export class CartService {
@@ -19,6 +24,8 @@ export class CartService {
   private readonly auth = inject(AuthService);
 
   private readonly _items = signal<CartItem[]>(this.loadLocal());
+  private remoteTimer: ReturnType<typeof setTimeout> | null = null;
+  private hasMergedForUid: string | null = null;
 
   readonly items = this._items.asReadonly();
   readonly count = computed(() =>
@@ -37,11 +44,17 @@ export class CartService {
       }
     });
 
-    // Cada vez que el usuario cambia, fusionamos o sincronizamos con Firestore.
+    // Merge con Firestore cuando el usuario cambia. Guardamos el uid ya
+    // mergeado para no repetir el fetch al siguiente change-detection.
     effect(async () => {
-      const fbUser = this.auth.firebaseUser();
-      if (!fbUser) return;
-      await this.syncWithRemote(fbUser.uid);
+      const uid = this.auth.firebaseUser()?.uid ?? null;
+      if (!uid) {
+        this.hasMergedForUid = null;
+        return;
+      }
+      if (this.hasMergedForUid === uid) return;
+      this.hasMergedForUid = uid;
+      await this.syncWithRemote(uid);
     });
   }
 
@@ -56,12 +69,12 @@ export class CartService {
       }
       return [...items, { funko, cantidad: Math.min(cantidad, funko.stock) }];
     });
-    this.persistRemote();
+    this.schedulePersistRemote();
   }
 
   remove(funkoId: string): void {
     this._items.update((items) => items.filter((it) => it.funko.id !== funkoId));
-    this.persistRemote();
+    this.schedulePersistRemote();
   }
 
   updateQuantity(funkoId: string, cantidad: number): void {
@@ -76,12 +89,12 @@ export class CartService {
           : it,
       ),
     );
-    this.persistRemote();
+    this.schedulePersistRemote();
   }
 
   clear(): void {
     this._items.set([]);
-    this.persistRemote();
+    this.schedulePersistRemote();
   }
 
   private computeSummary(items: CartItem[]): CartSummary {
@@ -113,28 +126,44 @@ export class CartService {
   }
 
   private async syncWithRemote(uid: string): Promise<void> {
-    const ref = doc(this.firestore, `cart/${uid}`);
-    const snap = await getDoc(ref);
-    const remote = (snap.exists() ? (snap.data()['items'] as CartItem[]) : []) ?? [];
-    const local = this._items();
+    try {
+      const ref = doc(this.firestore, `cart/${uid}`);
+      const snap = await getDoc(ref);
+      const remote = (snap.exists() ? (snap.data()['items'] as CartItem[]) : []) ?? [];
+      const local = this._items();
 
-    // Merge: prevalece mayor cantidad por si había items pendientes de migrar.
-    const merged: Record<string, CartItem> = {};
-    for (const it of remote) merged[it.funko.id] = it;
-    for (const it of local) {
-      merged[it.funko.id] = merged[it.funko.id]
-        ? { ...it, cantidad: Math.max(it.cantidad, merged[it.funko.id].cantidad) }
-        : it;
+      // Merge: prevalece mayor cantidad por si había items pendientes de migrar.
+      const merged: Record<string, CartItem> = {};
+      for (const it of remote) merged[it.funko.id] = it;
+      for (const it of local) {
+        merged[it.funko.id] = merged[it.funko.id]
+          ? { ...it, cantidad: Math.max(it.cantidad, merged[it.funko.id].cantidad) }
+          : it;
+      }
+      const mergedItems = Object.values(merged);
+      this._items.set(mergedItems);
+      await setDoc(ref, stripUndefined({ items: mergedItems, updatedAt: Date.now() }));
+    } catch (err) {
+      console.warn('[CartService] No se pudo sincronizar con Firestore', err);
     }
-    const mergedItems = Object.values(merged);
-    this._items.set(mergedItems);
-    await setDoc(ref, { items: mergedItems, updatedAt: Date.now() });
+  }
+
+  private schedulePersistRemote(): void {
+    if (!this.auth.firebaseUser()?.uid) return;
+    if (this.remoteTimer) clearTimeout(this.remoteTimer);
+    this.remoteTimer = setTimeout(() => {
+      void this.persistRemote();
+    }, REMOTE_DEBOUNCE_MS);
   }
 
   private async persistRemote(): Promise<void> {
     const uid = this.auth.firebaseUser()?.uid;
     if (!uid) return;
-    const ref = doc(this.firestore, `cart/${uid}`);
-    await setDoc(ref, { items: this._items(), updatedAt: Date.now() });
+    try {
+      const ref = doc(this.firestore, `cart/${uid}`);
+      await setDoc(ref, stripUndefined({ items: this._items(), updatedAt: Date.now() }));
+    } catch (err) {
+      console.warn('[CartService] persistRemote falló', err);
+    }
   }
 }

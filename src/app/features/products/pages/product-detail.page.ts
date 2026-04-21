@@ -1,6 +1,14 @@
-import { ChangeDetectionStrategy, Component, OnInit, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  OnInit,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { toSignal } from '@angular/core/rxjs-interop';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   LucideAngularModule,
   Eye,
@@ -40,19 +48,18 @@ import { SAMPLE_FUNKOS } from '../../../core/data/sample-funkos';
     FunkoCardComponent,
   ],
   template: `
-    <section class="max-w-6xl mx-auto px-4 sm:px-6 py-10">
-      <a routerLink="/products" class="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-white mb-6">
+    <section class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-10">
+      <a routerLink="/products" class="inline-flex items-center gap-1 text-sm text-slate-400 hover:text-white mb-5 sm:mb-6">
         <lucide-icon [img]="ArrowLeft" [size]="16"/> Volver al catálogo
       </a>
 
       @if (!funko()) {
         <fv-spinner minHeight="400px"/>
       } @else {
-        <article class="grid md:grid-cols-2 gap-10 fv-fade-in">
-          <!-- Imagen -->
+        <article class="grid md:grid-cols-2 gap-8 md:gap-10 fv-fade-in">
           <div class="relative">
             <div
-              class="absolute -inset-4 rounded-[2rem] blur-2xl opacity-60"
+              class="absolute -inset-4 rounded-[2rem] blur-2xl opacity-60 pointer-events-none"
               [style.background]="'radial-gradient(circle, ' + element().color + '55, transparent 70%)'"
             ></div>
             <div class="relative fv-card overflow-hidden aspect-square">
@@ -60,6 +67,7 @@ import { SAMPLE_FUNKOS } from '../../../core/data/sample-funkos';
                 [src]="funko()!.imagen_url"
                 [alt]="funko()!.nombre"
                 class="w-full h-full object-cover"
+                (error)="onImgError($event)"
               />
               @if (funko()!.descuento) {
                 <span
@@ -71,17 +79,16 @@ import { SAMPLE_FUNKOS } from '../../../core/data/sample-funkos';
             </div>
           </div>
 
-          <!-- Info -->
           <div class="flex flex-col">
             <span class="fv-badge fv-badge-{{ funko()!.tipo }} w-fit">
               {{ element().label }}
             </span>
 
-            <h1 class="text-3xl md:text-4xl font-black text-white mt-3">
+            <h1 class="text-2xl sm:text-3xl md:text-4xl font-black text-white mt-3 break-words">
               {{ funko()!.nombre }}
             </h1>
 
-            <div class="flex items-center gap-4 mt-3 text-sm text-slate-400">
+            <div class="flex flex-wrap items-center gap-3 sm:gap-4 mt-3 text-sm text-slate-400">
               <span class="flex items-center gap-1">
                 <lucide-icon [img]="Eye" [size]="14"/> {{ funko()!.vistas }} vistas
               </span>
@@ -102,28 +109,27 @@ import { SAMPLE_FUNKOS } from '../../../core/data/sample-funkos';
               {{ funko()!.descripcion }}
             </p>
 
-            <div class="mt-6 flex items-baseline gap-3">
+            <div class="mt-6 flex items-baseline gap-3 flex-wrap">
               @if (funko()!.descuento) {
                 <span class="text-slate-500 line-through text-lg">
                   {{ funko()!.precio | eur }}
                 </span>
-                <span class="text-4xl font-black fv-title">
+                <span class="text-3xl sm:text-4xl font-black fv-title">
                   {{ (funko()!.precio | discount: funko()!.descuento) | eur }}
                 </span>
               } @else {
-                <span class="text-4xl font-black fv-title">
+                <span class="text-3xl sm:text-4xl font-black fv-title">
                   {{ funko()!.precio | eur }}
                 </span>
               }
             </div>
 
-            <!-- Cantidad + acciones -->
-            <div class="mt-8 flex flex-wrap gap-3 items-center">
+            <div class="mt-6 sm:mt-8 flex flex-wrap gap-3 items-center">
               <div class="inline-flex items-center rounded-xl border border-white/10 bg-white/5">
                 <button
                   type="button"
                   (click)="decrease()"
-                  class="p-3 text-slate-300 hover:text-white"
+                  class="p-3 text-slate-300 hover:text-white disabled:opacity-40"
                   [disabled]="quantity() <= 1"
                   aria-label="Menos"
                 >
@@ -133,7 +139,7 @@ import { SAMPLE_FUNKOS } from '../../../core/data/sample-funkos';
                 <button
                   type="button"
                   (click)="increase()"
-                  class="p-3 text-slate-300 hover:text-white"
+                  class="p-3 text-slate-300 hover:text-white disabled:opacity-40"
                   [disabled]="quantity() >= funko()!.stock"
                   aria-label="Más"
                 >
@@ -165,31 +171,29 @@ import { SAMPLE_FUNKOS } from '../../../core/data/sample-funkos';
               </button>
             </div>
 
-            <!-- Highlights -->
             <div class="grid grid-cols-3 gap-3 mt-8">
               <div class="fv-glass rounded-xl p-3 text-center">
                 <lucide-icon [img]="Sparkles" [size]="18" class="mx-auto text-violet-300 mb-1"/>
-                <div class="text-xs text-slate-400">Coleccionable oficial</div>
+                <div class="text-[11px] sm:text-xs text-slate-400">Coleccionable oficial</div>
               </div>
               <div class="fv-glass rounded-xl p-3 text-center">
                 <lucide-icon [img]="Package" [size]="18" class="mx-auto text-cyan-300 mb-1"/>
-                <div class="text-xs text-slate-400">Envío gratis +75€</div>
+                <div class="text-[11px] sm:text-xs text-slate-400">Envío gratis +75€</div>
               </div>
               <div class="fv-glass rounded-xl p-3 text-center">
                 <lucide-icon [img]="Heart" [size]="18" class="mx-auto text-rose-300 mb-1"/>
-                <div class="text-xs text-slate-400">Edición elemental</div>
+                <div class="text-[11px] sm:text-xs text-slate-400">Edición elemental</div>
               </div>
             </div>
           </div>
         </article>
 
-        <!-- Relacionados -->
         @if (related().length > 0) {
-          <section class="mt-16">
+          <section class="mt-12 sm:mt-16">
             <h2 class="text-2xl font-black text-white mb-5" style="font-family: 'Orbitron', sans-serif">
               También te podría gustar
             </h2>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-5">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-5">
               @for (f of related(); track f.id) {
                 <fv-funko-card [funko]="f"/>
               }
@@ -217,29 +221,46 @@ export class ProductDetailPage implements OnInit {
   private readonly wishlist = inject(WishlistService);
   private readonly auth = inject(AuthService);
   private readonly toast = inject(ToastService);
-
-  private readonly idSignal = toSignal(this.route.paramMap, { requireSync: true });
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly funko = signal<Funko | null>(null);
   readonly related = signal<Funko[]>([]);
   readonly quantity = signal<number>(1);
 
+  private viewCounted = false;
+
   element = computed(() => ELEMENTS[this.funko()?.tipo ?? 'agua']);
 
-  async ngOnInit(): Promise<void> {
-    const id = this.idSignal().get('id');
-    if (!id) return;
+  ngOnInit(): void {
+    this.route.paramMap
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((pm) => {
+        const id = pm.get('id');
+        if (!id) return;
+        this.viewCounted = false;
+        this.funko.set(null);
+        this.related.set([]);
+        this.loadFunko(id);
+      });
+  }
 
-    // Intentamos Firestore; si no, fallback a los samples locales.
+  private loadFunko(id: string): void {
     this.productService
       .getById(id)
-      .pipe(catchError(() => of(undefined)))
-      .subscribe(async (f) => {
-        const found = f ?? SAMPLE_FUNKOS.find((s) => s.id === id);
+      .pipe(
+        catchError(() => of(undefined)),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((f) => {
+        const found = f ?? SAMPLE_FUNKOS.find((s) => s.id === id) ?? null;
         if (!found) return;
         this.funko.set(found);
-        await this.loadRelated(found);
-        await this.trackView(found.id);
+        this.loadRelated(found);
+        // Solo contamos la vista una vez por navegación, no en cada update del stream.
+        if (!this.viewCounted) {
+          this.viewCounted = true;
+          void this.trackView(found.id);
+        }
       });
   }
 
@@ -274,28 +295,34 @@ export class ProductDetailPage implements OnInit {
     try {
       await this.wishlist.toggle(f.id);
     } catch (err) {
-      this.toast.error((err as Error).message);
+      this.toast.error((err as Error).message || 'No pudimos actualizar la wishlist');
     }
   }
 
-  private async loadRelated(source: Funko): Promise<void> {
-    try {
-      this.productService
-        .getRelated(source.tipo, source.id, 4)
-        .pipe(catchError(() => of<Funko[]>([])))
-        .subscribe((items) => {
-          const list = items.length
-            ? items
-            : SAMPLE_FUNKOS.filter((s) => s.tipo === source.tipo && s.id !== source.id).slice(0, 4);
-          this.related.set(list);
-        });
-    } catch {
-      this.related.set([]);
-    }
+  onImgError(ev: Event): void {
+    const img = ev.target as HTMLImageElement;
+    img.src =
+      'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400"><rect width="400" height="400" fill="%2316182d"/><text x="50%" y="50%" fill="%238b5cf6" font-family="sans-serif" font-size="26" text-anchor="middle" dominant-baseline="middle">FunkoVerse</text></svg>';
+  }
+
+  private loadRelated(source: Funko): void {
+    this.productService
+      .getRelated(source.tipo, source.id, 4)
+      .pipe(
+        catchError(() => of<Funko[]>([])),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((items) => {
+        const list = items.length
+          ? items
+          : SAMPLE_FUNKOS.filter((s) => s.tipo === source.tipo && s.id !== source.id).slice(0, 4);
+        this.related.set(list);
+      });
   }
 
   private async trackView(id: string): Promise<void> {
-    // Silencioso: si el producto solo existe en samples (sin Firestore), no pasa nada.
+    // Si el producto solo existe en samples, Firestore lanzará "not-found".
+    // Lo silenciamos: no es un error que deba ver el usuario.
     try {
       await this.productService.incrementViews(id);
     } catch {
