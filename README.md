@@ -1,59 +1,104 @@
 # FunkoVerse
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.2.7.
+E-commerce de Funkos inspirado en los **4 elementos** — agua, fuego, aire y tierra.
 
-## Development server
+## Stack
 
-To start a local development server, run:
+- **Frontend**: Angular 21 · Standalone components · Signals · Lazy loading · Tailwind v4
+- **Backend / BaaS**: Firebase (Auth, Firestore, Storage)
+- **UI**: Tailwind · SweetAlert2 · Lucide Icons · Chart.js (via ng2-charts)
+- **Deploy**: listo para Vercel (`vercel.json` incluido)
 
-```bash
-ng serve
+## Arquitectura
+
+```
+src/app
+├── core
+│   ├── config       # Firebase providers
+│   ├── data         # sample-funkos (datos de ejemplo)
+│   ├── guards       # authGuard, adminGuard, guestGuard
+│   └── services     # Auth, Product, Cart, Order, Wishlist, Promotion, Toast, User
+├── features
+│   ├── auth         # login, register, forgot
+│   ├── products     # home, catálogo, detalle
+│   ├── cart         # carrito + checkout
+│   ├── orders       # mis pedidos
+│   ├── wishlist
+│   ├── profile
+│   ├── admin        # dashboard, productos, pedidos, promociones
+│   └── shared-pages # 404
+├── layout           # navbar, footer, shell
+├── shared
+│   ├── components   # funko-card, spinner, skeleton
+│   ├── models       # Funko, User, Cart, Order, Promotion, Wishlist
+│   └── pipes        # eur, discount
+└── app.routes.ts
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+## Puesta en marcha
 
-## Code scaffolding
+1. Instala dependencias:
+   ```bash
+   npm install
+   ```
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+2. Configura Firebase en `src/environments/environment.ts` con los credenciales
+   de tu proyecto (Console → Project settings → SDK):
 
-```bash
-ng generate component component-name
-```
+   ```ts
+   export const environment = {
+     production: false,
+     useFirebaseEmulator: false,
+     firebase: {
+       apiKey: '...',
+       authDomain: '...',
+       projectId: '...',
+       storageBucket: '...',
+       messagingSenderId: '...',
+       appId: '...',
+     },
+   };
+   ```
 
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
+3. En Firestore las colecciones (`users`, `products`, `orders`, `wishlist`,
+   `cart`, `promotions`) se crean automáticamente al escribir la primera vez.
 
-```bash
-ng generate --help
-```
+4. Levanta el servidor:
+   ```bash
+   npm start
+   ```
 
-## Building
+## Primer uso
 
-To build the project run:
+- Regístrate en `/auth/register`. Se creará un documento en `users/{uid}` con `role: 'user'`.
+- Para promover un usuario a **admin**, edita su documento en Firestore y cambia
+  `role` a `"admin"`. Al recargar verás el acceso al panel en la navbar.
+- Desde `/admin/products` pulsa **Cargar samples** para sembrar los Funkos
+  de ejemplo en Firestore.
 
-```bash
-ng build
-```
+> Antes de configurar Firebase, el catálogo cae automáticamente al dataset local
+> en `src/app/core/data/sample-funkos.ts`, así puedes trastear con la UI sin
+> depender de la red.
 
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
+## Funcionalidades
 
-## Running unit tests
+- Catálogo con filtros por elemento, búsqueda y orden (precio, popularidad, nuevos).
+- Página de producto con contador de vistas, stock, relacionados y descuentos.
+- Carrito persistente: localStorage (invitado) + Firestore (logueado, merge automático).
+- Checkout 4 pasos simulado: resumen → dirección → pago (tarjeta/PayPal fake) → confirmación.
+- Wishlist sincronizada en Firestore.
+- Perfil con datos y dirección de envío.
+- Historial de pedidos con estados (pendiente/pagado/enviado/entregado/cancelado).
+- Admin: dashboard con métricas + gráfica doughnut, CRUD de productos, gestión
+  de pedidos, promociones temporales.
 
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
+## Deploy a Vercel
 
-```bash
-ng test
-```
+Ya hay un `vercel.json` listo. Solo tienes que conectar el repo a Vercel
+con framework preset Angular y output en `dist/FunkoVerse/browser`.
 
-## Running end-to-end tests
+## Scripts
 
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+- `npm start` — dev server en `http://localhost:4200`
+- `npm run build` — build de producción
+- `npm test` — suite con Vitest

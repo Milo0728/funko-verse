@@ -1,3 +1,203 @@
-/* You can add global styles to this file, and also import other style files */
-
+/* FunkoVerse — estilos globales */
 @import 'tailwindcss';
+
+:root {
+  --fv-bg: #05060f;
+  --fv-bg-soft: #0b0c1a;
+  --fv-surface: rgba(22, 24, 45, 0.7);
+  --fv-border: rgba(139, 92, 246, 0.25);
+  --fv-text: #e2e8f0;
+  --fv-muted: #94a3b8;
+  --fv-primary: #8b5cf6;
+  --fv-accent: #22d3ee;
+  --fv-fire: #f97316;
+  --fv-water: #22d3ee;
+  --fv-earth: #10b981;
+  --fv-air: #a78bfa;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(139, 92, 246, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 20%, rgba(34, 211, 238, 0.12), transparent 60%),
+    radial-gradient(700px 500px at 50% 110%, rgba(249, 115, 22, 0.10), transparent 60%),
+    var(--fv-bg);
+  color: var(--fv-text);
+  font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(139, 92, 246, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.04) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* utilidades propias */
+.fv-glass {
+  background: var(--fv-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--fv-border);
+}
+
+.fv-card {
+  background: linear-gradient(145deg, rgba(30, 30, 60, 0.65), rgba(15, 15, 35, 0.85));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 20px;
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.fv-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(139, 92, 246, 0.6);
+  box-shadow: 0 20px 60px -20px rgba(139, 92, 246, 0.45);
+}
+
+.fv-title {
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, #fff 0%, #c4b5fd 45%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.fv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform 0.15s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+.fv-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.fv-btn-primary {
+  background: linear-gradient(135deg, #8b5cf6, #d946ef);
+  color: white;
+  box-shadow: 0 10px 30px -10px rgba(139, 92, 246, 0.6);
+}
+.fv-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 40px -10px rgba(139, 92, 246, 0.8);
+}
+.fv-btn-ghost {
+  background: rgba(148, 163, 184, 0.1);
+  color: var(--fv-text);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+}
+.fv-btn-ghost:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.2);
+  border-color: rgba(148, 163, 184, 0.4);
+}
+.fv-btn-danger {
+  background: linear-gradient(135deg, #ef4444, #f97316);
+  color: white;
+}
+
+/* inputs */
+.fv-input {
+  width: 100%;
+  padding: 0.7rem 1rem;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 12px;
+  color: white;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.fv-input:focus {
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15);
+}
+
+/* badges por elemento */
+.fv-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.fv-badge-agua {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.25), rgba(59, 130, 246, 0.25));
+  color: #7dd3fc;
+  border: 1px solid rgba(34, 211, 238, 0.4);
+}
+.fv-badge-fuego {
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.25), rgba(244, 63, 94, 0.25));
+  color: #fdba74;
+  border: 1px solid rgba(249, 115, 22, 0.4);
+}
+.fv-badge-aire {
+  background: linear-gradient(135deg, rgba(196, 181, 253, 0.25), rgba(129, 140, 248, 0.25));
+  color: #c4b5fd;
+  border: 1px solid rgba(167, 139, 250, 0.4);
+}
+.fv-badge-tierra {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(132, 204, 22, 0.25));
+  color: #6ee7b7;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+
+/* skeleton */
+.fv-skeleton {
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.1) 0%, rgba(148, 163, 184, 0.25) 50%, rgba(148, 163, 184, 0.1) 100%);
+  background-size: 200% 100%;
+  animation: fv-shimmer 1.4s infinite;
+  border-radius: 12px;
+}
+@keyframes fv-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* animaciones suaves */
+@keyframes fv-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fv-fade-in { animation: fv-fade-in 0.4s ease both; }
+
+@keyframes fv-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+.fv-float { animation: fv-float 4s ease-in-out infinite; }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0a0b1a; }
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #8b5cf6, #22d3ee);
+  border-radius: 10px;
+}
+
+/* SweetAlert override */
+.fv-toast { border: 1px solid rgba(139, 92, 246, 0.4) !important; border-radius: 14px !important; }
