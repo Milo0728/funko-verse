@@ -17,7 +17,7 @@ import {
   setDoc,
   updateDoc,
 } from '@angular/fire/firestore';
-import { Observable, firstValueFrom, map, of, switchMap } from 'rxjs';
+import { Observable, Subscription, of, switchMap } from 'rxjs';
 
 import { AppUser, UserRole } from '../../shared/models';
 
@@ -53,24 +53,33 @@ export class AuthService {
   );
 
   constructor() {
-    // Sincroniza signals a partir del estado real de auth
-    user(this.auth).subscribe(async (fbUser) => {
+    // Sincroniza signals a partir del estado real de auth.
+    // Nos suscribimos al docData en vivo para que cambios de rol en Firestore
+    // se reflejen automáticamente en la UI sin requerir logout/login.
+    let profileSub: Subscription | null = null;
+
+    user(this.auth).subscribe((fbUser) => {
+      profileSub?.unsubscribe();
       this._firebaseUser.set(fbUser);
+
       if (!fbUser) {
         this._appUser.set(null);
         this._loading.set(false);
         return;
       }
-      try {
-        const profile = await firstValueFrom(
-          (docData(doc(this.firestore, `users/${fbUser.uid}`)) as Observable<AppUser>).pipe(
-            map((u) => u ?? null),
-          ),
-        );
-        this._appUser.set(profile ?? null);
-      } finally {
-        this._loading.set(false);
-      }
+
+      const ref = doc(this.firestore, `users/${fbUser.uid}`);
+      profileSub = (docData(ref) as Observable<AppUser | undefined>).subscribe({
+        next: (profile) => {
+          this._appUser.set(profile ?? null);
+          this._loading.set(false);
+        },
+        error: (err) => {
+          // Típicamente un "permission-denied" por reglas de Firestore.
+          console.error('[FunkoVerse] No se pudo leer el perfil:', err);
+          this._loading.set(false);
+        },
+      });
     });
   }
 
