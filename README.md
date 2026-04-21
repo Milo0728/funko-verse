@@ -92,11 +92,6 @@ src/app
 - Admin: dashboard con métricas + gráfica doughnut, CRUD de productos, gestión
   de pedidos, promociones temporales.
 
-## Deploy a Vercel
-
-Ya hay un `vercel.json` listo. Solo tienes que conectar el repo a Vercel
-con framework preset Angular y output en `dist/FunkoVerse/browser`.
-
 ## Scripts
 
 - `npm start` — dev server en `http://localhost:4200`
