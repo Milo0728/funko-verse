@@ -56,7 +56,6 @@ import {
 
         <div class="mt-10 pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
           <span>© {{ year }} FunkoVerse. Todos los derechos reservados.</span>
-          <span>Hecho con Angular + Firebase • Desplegado en Vercel</span>
         </div>
       </div>
     </footer>
